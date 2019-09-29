@@ -1,0 +1,10 @@
+FROM tiangolo/uvicorn-gunicorn-fastapi:python3.7
+
+RUN pip install aio-pika
+
+COPY ./app /app
+WORKDIR /app/
+
+ENV PYTHONPATH=/app
+
+EXPOSE 80

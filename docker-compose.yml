@@ -1,0 +1,60 @@
+version: "3"
+
+services:
+
+  rabbitmq:
+    image: rabbitmq:3
+    command: rabbitmq-server
+    expose:
+      - 5672
+      - 15672
+    healthcheck:
+      timeout: 5s
+      interval: 5s
+      retries: 5
+      test:
+        - "CMD"
+        - "rabbitmqctl"
+        - "status"
+
+  proxy:
+    image: traefik:v1.7
+    labels:
+      - traefik.frontend.rule=Host:localhost
+      - traefik.enable=true
+      - traefik.port=80
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - '80:80'
+      - '8090:8080'
+    command: --docker \
+      --docker.watch \
+      --docker.exposedbydefault=false \
+      --constraints=tag==test-rabbitmq \
+      --logLevel=DEBUG \
+      --accessLog \
+      --web
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: dockerfile
+    command: /start-reload.sh
+    environment:
+      - SERVER_HOST=http://localhost
+      - SERVER_NAME=localhost
+    labels:
+      - traefik.frontend.rule=PathPrefix:/,
+      - traefik.enable=true
+      - traefik.port=80
+      - traefik.tags=test-rabbitmq
+    restart: on-failure
+    depends_on:
+      - rabbitmq
+    volumes:
+      - ./backend/app:/app
+    networks: 
+      default: 
+        aliases: 
+          - localhost
